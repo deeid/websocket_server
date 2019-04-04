@@ -1,7 +1,6 @@
 '''
  Author: Sirvan Almasi @ Imperial College London
  August 2018
- Dissertation Project
 '''
 
 import sys, hmac, hashlib

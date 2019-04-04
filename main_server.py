@@ -12,7 +12,7 @@ print('Starting socket server....')
 print('Running on http://'+str(serverIP)+':'+str(serverPort))
 
 # Number of rounds for the Fiat-Shamir Protocol
-almasFFSRounds = 4
+almasFFSRounds = 5
 
 def uniqueID(size=12, chars=string.ascii_letters + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
