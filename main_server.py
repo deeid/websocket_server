@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import asyncio, websockets
-import datetime
+import datetime, uuid
 import random, string, json
 from almasFFS import almasFFS
 
@@ -14,13 +14,13 @@ print('Running on http://'+str(serverIP)+':'+str(serverPort))
 # Number of rounds for the Fiat-Shamir Protocol
 almasFFSRounds = 5
 
-def uniqueID(size=12, chars=string.ascii_letters + string.digits):
+def uniqueID(size=24, chars=string.ascii_letters + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
-async def sendUser(data):
-    if sockets[data['host']]:
+async def loginSig(data):
+    if sockets[data['uID']]:
         sigJSON = json.dumps({'type': 'signature', 'signature': data['signature']})
-        await sockets[data['host']].send(sigJSON)
+        await sockets[data['uID']].send(sigJSON)
 
 async def almasFFSSendJson(round, step, data, websocket):
     expJSON = json.dumps({'type' : 'almasFFS', 'round': round, 'rnds' : almasFFSRounds, 'step' : step, 'data' : data })
@@ -144,7 +144,7 @@ async def almasFFSMobileHandler(data, websocket):
 
 
 async def main(websocket, path):
-    uID = uniqueID() # a unique id for connection
+    uID = str(uuid.uuid4()) # a unique id for the connection
     sockets[uID] = websocket
     almasFFSSocket[id(websocket)] = {
         'sock' : websocket,
@@ -179,7 +179,7 @@ async def main(websocket, path):
 
             # if its a login attempt
             if(data['type'] == 'loginSig'):
-                await sendUser(data)
+                await loginSig(data)
             
             if(data['type'] == 'almasFFS'):
                 await almasFFSHandler(data, websocket)
