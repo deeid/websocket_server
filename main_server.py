@@ -19,7 +19,15 @@ def uniqueID(size=24, chars=string.ascii_letters + string.digits):
 
 async def loginSig(data):
     if sockets[data['uID']]:
-        sigJSON = json.dumps({'type': 'signature', 'signature': data['signature']})
+        sigJSON = json.dumps({
+                    'type': 'loginSigSigned',
+                    'uID': data['uID'],
+                    'deeID': data['deeID'],
+                    'expirytime': data['expirytime'],
+                    'data': data['data'],
+                    'msg': data['msg'],
+                    'signature': data['signature']
+            })
         await sockets[data['uID']].send(sigJSON)
 
 async def almasFFSSendJson(round, step, data, websocket):
