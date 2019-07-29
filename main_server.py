@@ -1,24 +1,28 @@
 #!/usr/bin/env python
 import asyncio, websockets
-import datetime, uuid
+import datetime, uuid, sys
 import random, string, json
 from almasFFS import almasFFS
 
-sockets = {}
 almasFFSSocket = {}
 serverIP = '127.0.0.1'
-serverPort =  5678
+
+# Port number to use
+if (len(sys.argv) > 1):
+    serverPort = sys.argv[1]
+else:
+    serverPort = 5678
+
 print('Starting socket server....')
 print('Running on http://'+str(serverIP)+':'+str(serverPort))
 
 # Number of rounds for the Fiat-Shamir Protocol
 almasFFSRounds = 10
 
-def uniqueID(size=24, chars=string.ascii_letters + string.digits):
-    return ''.join(random.choice(chars) for _ in range(size))
 
+# Signed login signature
 async def loginSig(data):
-    if sockets[data['uID']]:
+    if almasFFSSocket[data['uID']]:
         sigJSON = json.dumps({
                     'type': 'loginSigSigned',
                     'uID': data['uID'],
@@ -27,13 +31,15 @@ async def loginSig(data):
                     'data': data['data'],
                     'msg': data['msg'],
                     'signature': data['signature']
-            })
-        await sockets[data['uID']].send(sigJSON)
+                })
+        await almasFFSSocket[data['uID']]['sock'].send(sigJSON)
 
+# Structure of a common json
 async def almasFFSSendJson(round, step, data, websocket):
     expJSON = json.dumps({'type' : 'almasFFS', 'round': round, 'rnds' : almasFFSRounds, 'step' : step, 'data' : data })
     await websocket.send(expJSON)
 
+'''
 async def almasFFSHandler(data, websocket):
     v = almasFFSSocket[id(websocket)]['v']
     n = almasFFSSocket[id(websocket)]['n']
@@ -76,7 +82,6 @@ async def almasFFSHandler(data, websocket):
         expected_x = expected_x % n
 
         # Step 4: Get the result
-        result = 0
         if (expected_x==x) or (expected_x==(-x%n)):
             print("Challenge correctly completed!")
             await almasFFSSendJson(rnd, 4, 'Pass', websocket)    
@@ -87,7 +92,13 @@ async def almasFFSHandler(data, websocket):
 
         if(almasFFSSocket[id(websocket)]['rnd'] == almasFFSRounds):
             print('Fails: ' + str(almasFFSSocket[id(websocket)]['fails']))
+'''
 
+# Fiat-Shamir Cryptoo Mobile Handler
+# Calls from the mobile phone will be led to here
+#
+# This function performs the Fiat-Shamir interactive
+#  negotiation to prove ones identity.
 async def almasFFSMobileHandler(data, websocket):
     socketID = int(data['forID'])
     v = almasFFSSocket[socketID]['v']
@@ -95,7 +106,9 @@ async def almasFFSMobileHandler(data, websocket):
     e = almasFFSSocket[socketID]['e']
     x = almasFFSSocket[socketID]['x']
     rnd = almasFFSSocket[socketID]['rnd']
-
+    # # ==================================
+    # # STEP 0
+    # # ==================================
     if (data['step'] == 0):
         # Initial setup, to calculate the users 
         #   public key from the global function
@@ -111,27 +124,42 @@ async def almasFFSMobileHandler(data, websocket):
         almasFFSSocket[socketID]['x'] = 0
         almasFFSSocket[socketID]['e'] = []
 
-        await almasFFSSendJson(rnd+1, 1, '', websocket)
+        await almasFFSSendJson(rnd, 1, '', websocket)
 
+    # # ==================================
+    # # STEP 1 - GET x = s.r^2 mod n
+    # # ==================================
     elif (data['step'] == 1):
         # Get and save x
         almasFFSSocket[socketID]['x'] = int(data['data'])
+    # # ==================================
+    # # STEP 2 - SEND RAND BITS
+    # # ==================================
         # Send random bits
+        e = []
         for i in range(0,len(v)):
             e.append(random.randint(0,1))    
         await almasFFSSendJson(rnd, 2, e, websocket)    
         almasFFSSocket[socketID]['e'] = e
 
+    # # ==================================
+    # # STEP 3 - GET Y 
+    # # ==================================
     elif (data['step'] == 3):
         # Step 3, get y
         expected_x = int(data['data'])**2 % n
+
+    # # ==================================
+    # # STEP 4 - Verify y
+    # # ==================================
         for i in range(0,len(e)):
             if e[i]==1:
                 expected_x*=v[i]
         expected_x = expected_x % n
 
-        # Step 4: Get the result
-        result = 0
+    # # ==================================
+    # # STEP final - GET THE RESULTS
+    # # ==================================
         if (expected_x==x) or (expected_x==(-x%n)):
             print("Challenge correctly completed!")
             await almasFFSSendJson(rnd, 4, 'Pass', websocket)    
@@ -146,14 +174,18 @@ async def almasFFSMobileHandler(data, websocket):
             finalResult = ''
             if (fails == 0):
                 finalResult = 'Pass'
-            else:
+            elif (fails > 0):
                 finalResult = 'Fail'
+            else:
+                finalResult = 'Error'
+
             await almasFFSSendJson(rnd, 4, finalResult, almasFFSSocket[socketID]['sock'])
+            print('END OF AUTH')
 
 
 async def main(websocket, path):
     uID = str(uuid.uuid4()) # a unique id for the connection
-    sockets[uID] = websocket
+    #sockets[uID] = websocket
     almasFFSSocket[id(websocket)] = {
         'sock' : websocket,
         'uID' : uID,
@@ -167,35 +199,26 @@ async def main(websocket, path):
     }
 
     socketID = id(websocket)
-    print(almasFFSSocket[socketID])
 
-    uIDJson = json.dumps({'type': 'uID', 'uID': uID})
+    uIDJson = json.dumps({'type': 'uID', 'uID': socketID})
     await websocket.send(uIDJson)
-
-    almasFFSID = json.dumps({'type': 'uID', 'uID': id(websocket)})
-    await websocket.send(almasFFSID)
-
-    for key,val in sockets.items():
-        print(key, "=>", val)
+    
 
     try:
         async for message in websocket:
-            print(message)
-            data = json.loads(message)
-            for key,val in sockets.items():
-                print(key, "=>", val)
+            print('...New connection')
 
+            data = json.loads(message)
             # if its a login attempt
             if(data['type'] == 'loginSig'):
                 await loginSig(data)
-            
-            if(data['type'] == 'almasFFS'):
+            elif(data['type'] == 'almasFFS'):
                 await almasFFSHandler(data, websocket)
             elif(data['type'] == 'almasFFSMobile'):
                 await almasFFSMobileHandler(data, websocket)
 
     finally:
-        del sockets[uID]
+        #del sockets[uID]
         del almasFFSSocket[id(websocket)]
 
 
