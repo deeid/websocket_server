@@ -222,7 +222,7 @@ async def main(websocket, path):
         del almasFFSSocket[id(websocket)]
 
 
-start_server = websockets.serve(main, serverIP, serverPort)
+start_server = websockets.serve(main, serverIP, int(serverPort))
 
 asyncio.get_event_loop().run_until_complete(start_server)
 asyncio.get_event_loop().run_forever()
