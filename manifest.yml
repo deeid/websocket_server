@@ -1,0 +1,4 @@
+  applications:
+  - name: UniversalWebSocket
+    random-route: true
+    memory: 128M
