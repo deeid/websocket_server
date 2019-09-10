@@ -17,7 +17,7 @@ print('Starting socket server....')
 print('Running on http://'+str(serverIP)+':'+str(serverPort))
 
 # Number of rounds for the Fiat-Shamir Protocol
-almasFFSRounds = 10
+almasFFSRounds = 5
 
 
 # Signed login signature
@@ -115,6 +115,7 @@ async def almasFFSMobileHandler(data, websocket):
         if(rnd < 1):
             I = str(data['data']['I'])
             j = data['data']['j']
+            j = list(map(int, j))
             newN = int(data['data']['n'])
             almasFFSSocket[socketID]['n'] = newN
             user = almasFFS(I, j, newN)
@@ -124,6 +125,8 @@ async def almasFFSMobileHandler(data, websocket):
         almasFFSSocket[socketID]['x'] = 0
         almasFFSSocket[socketID]['e'] = []
 
+        print("the public key: " )
+        print(almasFFSSocket[socketID]['v'])
         await almasFFSSendJson(rnd, 1, '', websocket)
 
     # # ==================================
@@ -157,6 +160,7 @@ async def almasFFSMobileHandler(data, websocket):
                 expected_x*=v[i]
         expected_x = expected_x % n
 
+        print("expected x: "+str(expected_x))
     # # ==================================
     # # STEP final - GET THE RESULTS
     # # ==================================
@@ -206,7 +210,7 @@ async def main(websocket, path):
 
     try:
         async for message in websocket:
-            print('...New connection')
+            #print('...New connection')
 
             data = json.loads(message)
             # if its a login attempt
