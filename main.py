@@ -186,6 +186,19 @@ async def almasFFSMobileHandler(data, websocket):
             await almasFFSSendJson(rnd, 4, finalResult, almasFFSSocket[socketID]['sock'])
             print('END OF AUTH')
 
+async def deeIDFormHandler(data, websocket):
+    if almasFFSSocket[data['uID']]:
+        sigJSON = json.dumps({
+                    'type': 'deeIDForm',
+                    'uID': data['uID'],
+                    'deeID': data['deeID'],
+                    'exp_time': data['exp_time'],
+                    'y': data['y'],
+                    'data': data['data'],
+                    'msg': data['msg'],
+                    'sig': data['sig']
+                })
+        await almasFFSSocket[data['uID']]['sock'].send(sigJSON)
 
 async def main(websocket, path):
     uID = str(uuid.uuid4()) # a unique id for the connection
@@ -220,6 +233,8 @@ async def main(websocket, path):
                 await almasFFSHandler(data, websocket)
             elif(data['type'] == 'almasFFSMobile'):
                 await almasFFSMobileHandler(data, websocket)
+            elif(data['type'] == 'deeIDForm'):
+                await deeIDFormHandler(data, websocket)
 
     finally:
         #del sockets[uID]
