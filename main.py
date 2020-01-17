@@ -223,7 +223,6 @@ async def main(websocket, path):
 
     try:
         async for message in websocket:
-            #print('...New connection')
 
             data = json.loads(message)
             # if its a login attempt
